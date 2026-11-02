@@ -102,7 +102,7 @@ On the Jetson:
 cd /path/to/Jetson_ArmPi_Communication/ros2_ws
 colcon build --packages-select jetson_armpi_bridge
 . install/setup.bash
-export PYTHONPATH=/path/to/Jetson_ArmPi_Communication/protocol:$PYTHONPATH
+export PYTHONPATH=/home/local/ros2_ws/src/Jetson_ArmPi_Communication/protocol:$PYTHONPATH
 ros2 run jetson_armpi_bridge jetson_to_armpi --ros-args \
   -p pi_host:=192.168.50.20 -p port:=8765
 ```

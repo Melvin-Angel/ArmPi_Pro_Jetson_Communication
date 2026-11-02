@@ -5,7 +5,6 @@
   <description>ROS 2 TCP/JSON adapter for ArmPi Pro.</description>
   <maintainer email="maintainer@example.com">ArmPi project</maintainer>
   <license>MIT</license>
-  <buildtool_depend>ament_python</buildtool_depend>
   <depend>rclpy</depend>
   <depend>geometry_msgs</depend>
   <depend>sensor_msgs</depend>
