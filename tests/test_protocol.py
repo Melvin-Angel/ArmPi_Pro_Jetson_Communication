@@ -25,6 +25,24 @@ class ProtocolTest(unittest.TestCase):
         with self.assertRaises(ProtocolError):
             validate_message(message)
 
+    def test_wheel_odometry_round_trip_and_validation(self):
+        payload = {"sec": 42, "nanosec": 123, "frame_id": "wheel_odom",
+                   "child_frame_id": "base_link", "position": [1, 2, 0],
+                   "orientation": [0, 0, 0, 1], "linear": [0.1, 0, 0],
+                   "angular": [0, 0, 0.2], "pose_covariance": [0.0] * 36,
+                   "twist_covariance": [0.0] * 36}
+        left, right = socket.socketpair()
+        try:
+            message = make_message("wheel_odometry", payload)
+            left.sendall(encode(message))
+            self.assertEqual(JsonLineSocket(right).recv_messages(), [message])
+        finally:
+            left.close()
+            right.close()
+        payload["pose_covariance"] = [0.0]
+        with self.assertRaises(ProtocolError):
+            validate_message(make_message("wheel_odometry", payload))
+
     def test_gripper_requires_operation(self):
         with self.assertRaises(ProtocolError):
             validate_message(make_message("gripper", {}))

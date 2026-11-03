@@ -8,6 +8,7 @@ import threading
 import time
 
 import rospy
+from nav_msgs.msg import Odometry
 from chassis_control.msg import SetVelocity
 from hiwonder_servo_msgs.msg import MultiRawIdPosDur, RawIdPosDur, ServoStateList
 from kinematics import ik_transform
@@ -43,8 +44,20 @@ class ArmPiToJetson(object):
         self.channel = None
         self.channel_lock = threading.Lock()
         self.send_lock = threading.Lock()
+        rospy.Subscriber("/wheel/odometry", Odometry, self._wheel_odom_callback, queue_size=1)
         rospy.Timer(rospy.Duration(0.1), self._watchdog)
         rospy.Timer(rospy.Duration(0.2), self._telemetry)
+
+    def _wheel_odom_callback(self, msg):
+        p, q = msg.pose.pose.position, msg.pose.pose.orientation
+        v, w = msg.twist.twist.linear, msg.twist.twist.angular
+        payload = {"sec": msg.header.stamp.secs, "nanosec": msg.header.stamp.nsecs,
+                   "frame_id": msg.header.frame_id, "child_frame_id": msg.child_frame_id,
+                   "position": [p.x, p.y, p.z], "orientation": [q.x, q.y, q.z, q.w],
+                   "linear": [v.x, v.y, v.z], "angular": [w.x, w.y, w.z],
+                   "pose_covariance": list(msg.pose.covariance),
+                   "twist_covariance": list(msg.twist.covariance)}
+        self._send(make_message("wheel_odometry", payload))
 
     def _servo_states_callback(self, message):
         self.servo_states = {str(state.id): {"goal": state.goal, "position": state.position,

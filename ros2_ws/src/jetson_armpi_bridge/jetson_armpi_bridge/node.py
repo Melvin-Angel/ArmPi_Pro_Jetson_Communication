@@ -9,6 +9,7 @@ import time
 
 import rclpy
 from geometry_msgs.msg import PoseStamped, Twist
+from nav_msgs.msg import Odometry
 from rclpy.node import Node
 from std_msgs.msg import Empty, String
 from std_srvs.srv import Trigger
@@ -53,6 +54,7 @@ class JetsonToArmPi(Node):
         self.create_subscription(PoseStamped, "/armpi/arm_pose_cmd", self._on_pose, 10)
         self.create_subscription(String, "/armpi/gripper_cmd", self._on_gripper, 10)
         self.create_subscription(Empty, "/armpi/stop", self._on_stop, 10)
+        self.wheel_odom_pub = self.create_publisher(Odometry, "/wheel/odometry", 10)
         self.state_pub = self.create_publisher(String, "/armpi/state", 10)
         self.status_pub = self.create_publisher(String, "/armpi/status", 10)
         self.pose_pub = self.create_publisher(PoseStamped, "/armpi/pose_estimated", 10)
@@ -139,6 +141,20 @@ class JetsonToArmPi(Node):
             kind, payload = message.get("type"), message.get("payload", {})
             if kind == "connection":
                 self.status_pub.publish(String(data=str(payload)))
+                continue
+            if kind == "wheel_odometry":
+                msg = Odometry()
+                msg.header.stamp.sec, msg.header.stamp.nanosec = payload["sec"], payload["nanosec"]
+                msg.header.frame_id, msg.child_frame_id = payload["frame_id"], payload["child_frame_id"]
+                p, q = msg.pose.pose.position, msg.pose.pose.orientation
+                v, w = msg.twist.twist.linear, msg.twist.twist.angular
+                p.x, p.y, p.z = payload["position"]
+                q.x, q.y, q.z, q.w = payload["orientation"]
+                v.x, v.y, v.z = payload["linear"]
+                w.x, w.y, w.z = payload["angular"]
+                msg.pose.covariance = payload["pose_covariance"]
+                msg.twist.covariance = payload["twist_covariance"]
+                self.wheel_odom_pub.publish(msg)
                 continue
             self.state_pub.publish(String(data=str(message)))
             if kind in ("state", "telemetry") and payload.get("pose"):

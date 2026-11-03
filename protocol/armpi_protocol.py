@@ -1,5 +1,6 @@
 """Versioned, newline-delimited JSON protocol shared by the ROS 1 and ROS 2 nodes."""
 import json
+import math
 import socket
 import time
 import uuid
@@ -61,6 +62,23 @@ def validate_message(message):
             _number(value, "position_m[%d]" % index)
         _number(payload.get("pitch_deg"), "pitch_deg")
         _number(payload.get("duration_s"), "duration_s")
+    elif kind == "wheel_odometry":
+        for key in ("sec", "nanosec"):
+            if type(payload.get(key)) is not int or payload[key] < 0:
+                raise ProtocolError("invalid odometry timestamp")
+        if payload["nanosec"] >= 1000000000 or payload["sec"] > 2147483647:
+            raise ProtocolError("invalid odometry timestamp")
+        for key in ("frame_id", "child_frame_id"):
+            if not isinstance(payload.get(key), str) or not payload[key]:
+                raise ProtocolError("invalid odometry frame")
+        for key, length in (("position", 3), ("orientation", 4), ("linear", 3),
+                            ("angular", 3), ("pose_covariance", 36), ("twist_covariance", 36)):
+            values = payload.get(key)
+            if not isinstance(values, list) or len(values) != length:
+                raise ProtocolError("invalid odometry " + key)
+            for value in values:
+                if not math.isfinite(_number(value, key)):
+                    raise ProtocolError("non-finite odometry " + key)
     elif kind == "gripper":
         if payload.get("command") not in ("open", "close") and "pulse" not in payload:
             raise ProtocolError("gripper requires command open/close or pulse")

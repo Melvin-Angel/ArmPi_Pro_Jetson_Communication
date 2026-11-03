@@ -109,3 +109,45 @@ ros2 run jetson_armpi_bridge jetson_to_armpi --ros-args \
 
 Run `python3 -m unittest discover -s tests -v` from this directory to test
 protocol framing and validation locally.
+
+## Experimental wheel odometry
+
+The Pi runs ROS 1 Melodic and Python 3. The wheel node and bridge changes are
+local source only until copied or pulled onto the Pi and rebuilt. The motor
+board protocol and calibration remain unverified; do not use for navigation.
+
+The diagnostic selects candidate register `0x3c` on bus 1, address `0x34`,
+then reads 16 bytes as four signed little-endian counts. Register selection is
+an I2C write transaction, but no count-reset, configuration or motor commands
+are sent. First confirm the board is compatible and powered. With the base
+safely supported, start the diagnostic and manually turn one wheel at a time:
+
+```bash
+source /opt/ros/melodic/setup.bash
+source /home/ubuntu/Jetson_ArmPi_Communication/ros1_ws/devel/setup.bash
+rosrun armpi_jetson_bridge encoder_diagnostic.py
+```
+
+Record stationary readings, channel and sign for each wheel, counts per full
+wheel turn in each direction, and whether counts persist across a power cycle.
+Errors must not be interpreted as zero movement. Coordinate access with the
+chassis driver; both use I2C bus 1. Do not write to 0x3c: some boards reset
+counts when data is written to that register.
+
+After physical calibration, configure the ROS 1 node with private parameters:
+`calibration_verified: true`, `channel_order` (four 1-based channels in
+front-left/front-right/rear-left/rear-right order), `wheel_signs` (four ±1
+values for positive forward wheel travel), `wheel_radius_m`,
+`ticks_per_revolution`, `wheelbase_sum_m` (centre-to-axle plus centre-to-wheel
+spacing), and `max_ticks_per_second`. `rate_hz` defaults to 20 and `i2c_bus`
+to 1. All geometry, channel assignment and signs require measurement. The node
+starts disabled until calibration is explicitly verified; it stops on read or
+count discontinuity and must be restarted/relocalized. It emits
+`/wheel/odometry` with `wheel_odom` and `base_link` frames, but never TF.
+Covariances are provisional placeholders, not measured uncertainties.
+
+The bridge forwards the full odometry message with its Pi source timestamp.
+Synchronize Pi/Jetson clocks and verify offset, rates, reconnect and stop
+behavior before using it. TCP odometry shares the existing command connection;
+its effect on latency and the existing watchdog remains untested. The Jetson
+SLAM workspace publishes the wheel TF and must be its only publisher.
