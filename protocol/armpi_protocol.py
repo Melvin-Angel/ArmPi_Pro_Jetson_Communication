@@ -62,6 +62,22 @@ def validate_message(message):
             _number(value, "position_m[%d]" % index)
         _number(payload.get("pitch_deg"), "pitch_deg")
         _number(payload.get("duration_s"), "duration_s")
+    elif kind == "joint_states":
+        if type(payload.get("sec")) is not int or not 0 <= payload["sec"] <= 2147483647:
+            raise ProtocolError("invalid joint timestamp")
+        if type(payload.get("nanosec")) is not int or not 0 <= payload["nanosec"] < 1000000000:
+            raise ProtocolError("invalid joint timestamp")
+        names = payload.get("name")
+        if (not isinstance(payload.get("frame_id"), str) or not isinstance(names, list)
+                or not names or any(not isinstance(name, str) or not name for name in names)
+                or len(names) != len(set(names))):
+            raise ProtocolError("invalid joint names or frame")
+        for key in ("position", "velocity", "effort"):
+            values = payload.get(key)
+            if not isinstance(values, list) or len(values) not in (0, len(names)):
+                raise ProtocolError("invalid joint " + key)
+            if any(not math.isfinite(_number(value, key)) for value in values):
+                raise ProtocolError("non-finite joint " + key)
     elif kind == "wheel_odometry":
         for key in ("sec", "nanosec"):
             if type(payload.get(key)) is not int or payload[key] < 0:

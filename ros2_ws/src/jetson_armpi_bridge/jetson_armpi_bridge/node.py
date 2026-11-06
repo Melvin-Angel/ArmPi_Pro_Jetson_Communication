@@ -10,6 +10,7 @@ import time
 import rclpy
 from geometry_msgs.msg import PoseStamped, Twist
 from nav_msgs.msg import Odometry
+from sensor_msgs.msg import JointState
 from rclpy.node import Node
 from std_msgs.msg import Empty, String
 from std_srvs.srv import Trigger
@@ -55,6 +56,7 @@ class JetsonToArmPi(Node):
         self.create_subscription(String, "/armpi/gripper_cmd", self._on_gripper, 10)
         self.create_subscription(Empty, "/armpi/stop", self._on_stop, 10)
         self.wheel_odom_pub = self.create_publisher(Odometry, "/wheel/odometry", 10)
+        self.joint_states_pub = self.create_publisher(JointState, "/joint_states", 10)
         self.state_pub = self.create_publisher(String, "/armpi/state", 10)
         self.status_pub = self.create_publisher(String, "/armpi/status", 10)
         self.pose_pub = self.create_publisher(PoseStamped, "/armpi/pose_estimated", 10)
@@ -141,6 +143,14 @@ class JetsonToArmPi(Node):
             kind, payload = message.get("type"), message.get("payload", {})
             if kind == "connection":
                 self.status_pub.publish(String(data=str(payload)))
+                continue
+            if kind == "joint_states":
+                msg = JointState()
+                msg.header.stamp.sec, msg.header.stamp.nanosec = payload["sec"], payload["nanosec"]
+                msg.header.frame_id = payload["frame_id"]
+                msg.name, msg.position = payload["name"], payload["position"]
+                msg.velocity, msg.effort = payload["velocity"], payload["effort"]
+                self.joint_states_pub.publish(msg)
                 continue
             if kind == "wheel_odometry":
                 msg = Odometry()

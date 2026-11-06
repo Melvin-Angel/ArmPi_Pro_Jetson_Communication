@@ -112,6 +112,13 @@ protocol framing and validation locally.
 
 ## Experimental wheel odometry
 
+The ROS 1 bridge also forwards `/joint_states` to ROS 2 with original Pi
+timestamps, names and arrays. This requires a running Pi joint-state publisher,
+the updated protocol and both updated bridge nodes. Synchronize host clocks.
+The vendor's `fake_read: true` setting means the published arm joint positions
+may reflect commands rather than measured servo positions; they are not verified
+physical feedback. Wheel and unreported jaw joint states are not fabricated.
+
 The Pi runs ROS 1 Melodic and Python 3. The wheel node and bridge changes are
 local source only until copied or pulled onto the Pi and rebuilt. The motor
 board protocol and calibration remain unverified; do not use for navigation.

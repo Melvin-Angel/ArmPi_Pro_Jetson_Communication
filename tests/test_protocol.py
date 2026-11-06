@@ -47,6 +47,25 @@ class ProtocolTest(unittest.TestCase):
         with self.assertRaises(ProtocolError):
             validate_message(make_message("gripper", {}))
 
+    def test_joint_state_transport_and_invalid_values(self):
+        payload = {"sec": 42, "nanosec": 12, "frame_id": "base_link",
+                   "name": ["joint1", "joint2"], "position": [0.2, -0.3],
+                   "velocity": [0.0, 0.0], "effort": []}
+        left, right = socket.socketpair()
+        try:
+            message = make_message("joint_states", payload)
+            left.sendall(encode(message))
+            self.assertEqual(JsonLineSocket(right).recv_messages(), [message])
+        finally:
+            left.close()
+            right.close()
+        payload["position"] = [float('nan'), 0.0]
+        with self.assertRaises(ProtocolError):
+            validate_message(make_message("joint_states", payload))
+        payload["position"] = [0.0]
+        with self.assertRaises(ProtocolError):
+            validate_message(make_message("joint_states", payload))
+
 
 if __name__ == "__main__":
     unittest.main()
