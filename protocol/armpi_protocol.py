@@ -10,6 +10,11 @@ MAX_FRAME_BYTES = 16 * 1024
 COMMAND_TYPES = {"base_velocity", "arm_pose", "gripper", "stop", "get_state", "heartbeat"}
 
 
+def chassis_direction_degrees(vx, vy):
+    """Map ROS +x forward/+y left onto vendor 90° forward/180° left."""
+    return (math.degrees(math.atan2(vy, vx)) + 90.0) % 360.0 if vx or vy else 0.0
+
+
 class ProtocolError(ValueError):
     pass
 

@@ -1,0 +1,8 @@
+<launch>
+  <!-- Explicit opt-in: these settings have not been validated on the ground. -->
+  <arg name="accept_provisional" default="false" />
+  <node pkg="armpi_jetson_bridge" type="wheel_odometry.py" name="wheel_odometry" output="screen">
+    <rosparam command="load" file="$(find armpi_jetson_bridge)/config/wheel_odometry_bench.yaml" />
+    <param name="calibration_verified" value="$(arg accept_provisional)" type="bool" />
+  </node>
+</launch>

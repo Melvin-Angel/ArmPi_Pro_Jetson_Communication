@@ -17,7 +17,7 @@ from kinematics import ik_transform
 PROTOCOL_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../protocol"))
 if PROTOCOL_DIR not in sys.path:
     sys.path.insert(0, PROTOCOL_DIR)
-from armpi_protocol import JsonLineSocket, ProtocolError, make_message, validate_message
+from armpi_protocol import JsonLineSocket, ProtocolError, chassis_direction_degrees, make_message, validate_message
 
 
 class ArmPiToJetson(object):
@@ -107,7 +107,7 @@ class ArmPiToJetson(object):
         speed = math.hypot(vx, vy)
         if speed > self.max_linear_mps or abs(wz) > self.max_angular_radps:
             raise ProtocolError("velocity exceeds configured safety limit")
-        direction_deg = math.degrees(math.atan2(vy, vx)) if speed else 0.0
+        direction_deg = chassis_direction_degrees(vx, vy)
         # ArmPi Pro expects velocity in mm/s and direction in degrees.
         self.velocity_pub.publish(speed * 1000.0, direction_deg, wz)
         return {"velocity_mps": speed, "direction_deg": direction_deg, "wz_radps": wz}

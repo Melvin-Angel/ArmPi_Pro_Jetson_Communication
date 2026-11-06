@@ -1,0 +1,6 @@
+<launch>
+  <!-- Explicit startup opt-in to the user-selected provisional bench calibration. -->
+  <include file="$(find armpi_jetson_bridge)/launch/wheel_odometry_bench.launch">
+    <arg name="accept_provisional" value="true" />
+  </include>
+</launch>

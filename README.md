@@ -1,7 +1,7 @@
 # Jetson ↔ ArmPi Pro bridge
 
 This directory contains the ROS-version boundary for an ArmPi Pro whose Pi runs
-ROS 1 Noetic while a Jetson runs ROS 2 Jazzy.  Camera and VLA workloads stay on
+ROS 1 Melodic while a Jetson runs ROS 2 Jazzy.  Camera and VLA workloads stay on
 the Jetson; the Pi remains the only process that talks to the ArmPi I2C motor
 board and serial servo controller.
 
@@ -86,7 +86,7 @@ not install both files on one machine. The node defaults match these values.
 Copy this directory to both computers, or keep it in a shared repository.  The
 small `protocol/` directory must be on `PYTHONPATH` for both nodes.
 
-On the Pi (after sourcing its Noetic workspace and launching the vendor servo
+On the Pi (after sourcing its Melodic workspace and launching the vendor servo
 controller and `chassis_control`):
 
 ```bash
@@ -112,16 +112,43 @@ protocol framing and validation locally.
 
 ## Experimental wheel odometry
 
+For an opt-in bench run using the manually measured channel mapping and count
+scale, and provisional simulation geometry, use:
+
+```bash
+roslaunch armpi_jetson_bridge wheel_odometry_bench.launch accept_provisional:=true
+```
+
+It resets its local pose estimate to zero each time it starts and does not
+command the motors. `wheel_odometry_startup.launch` opts into these provisional
+values and can be included once in the Pi's existing `start_functions.launch`:
+
+```xml
+<include file="$(find armpi_jetson_bridge)/launch/wheel_odometry_startup.launch" />
+```
+
+The wheel node stops on an encoder or timing error and is not automatically
+respawned; inspect the failure before restarting and relocalize after any restart.
+The `accept_provisional` argument enables the node's `calibration_verified` gate
+for this experimental configuration; it does not mean ground calibration or
+navigation is validated. See [encoder observations](docs/encoder_observations_20261106.md)
+and [wheel odometry configuration](ros1_ws/src/armpi_jetson_bridge/config/wheel_odometry_bench.yaml)
+for values and limitations.
+
 The ROS 1 bridge also forwards `/joint_states` to ROS 2 with original Pi
 timestamps, names and arrays. This requires a running Pi joint-state publisher,
 the updated protocol and both updated bridge nodes. Synchronize host clocks.
-The vendor's `fake_read: true` setting means the published arm joint positions
-may reflect commands rather than measured servo positions; they are not verified
-physical feedback. Wheel and unreported jaw joint states are not fabricated.
+The live Pi was changed to `fake_read: false` and all six servo IDs were observed
+returning positions; individual measurement accuracy and joint mapping are not
+yet physically validated. Wheel and unreported jaw joint states are not fabricated.
 
-The Pi runs ROS 1 Melodic and Python 3. The wheel node and bridge changes are
-local source only until copied or pulled onto the Pi and rebuilt. The motor
-board protocol and calibration remain unverified; do not use for navigation.
+The Pi runs ROS 1 Melodic and Python 3. Its enabled `start_node.service` starts
+`start_functions.launch`, which includes the wheel odometry startup launch.
+A [Pi-retrieved snapshot](docs/pi_snapshots/20261106/start_functions.launch)
+records that integration as observed on 6 November 2026; it contains that day's
+Wi-Fi address and is not a generic replacement for another robot's launch file.
+The live Pi's configuration and launch files were verified to match the local
+copies, but the Pi files and local changes still need committing and distribution.
 
 The diagnostic selects candidate register `0x3c` on bus 1, address `0x34`,
 then reads 16 bytes as four signed little-endian counts. Register selection is
@@ -141,14 +168,15 @@ Errors must not be interpreted as zero movement. Coordinate access with the
 chassis driver; both use I2C bus 1. Do not write to 0x3c: some boards reset
 counts when data is written to that register.
 
-After physical calibration, configure the ROS 1 node with private parameters:
+To adjust the ROS 1 node, configure its private parameters:
 `calibration_verified: true`, `channel_order` (four 1-based channels in
 front-left/front-right/rear-left/rear-right order), `wheel_signs` (four ±1
 values for positive forward wheel travel), `wheel_radius_m`,
 `ticks_per_revolution`, `wheelbase_sum_m` (centre-to-axle plus centre-to-wheel
 spacing), and `max_ticks_per_second`. `rate_hz` defaults to 20 and `i2c_bus`
-to 1. All geometry, channel assignment and signs require measurement. The node
-starts disabled until calibration is explicitly verified; it stops on read or
+to 1. The measured channel assignments, signs and provisional calibration are
+recorded in the linked observations. The node
+starts disabled unless the launch explicitly opts in; it stops on read or
 count discontinuity and must be restarted/relocalized. It emits
 `/wheel/odometry` with `wheel_odom` and `base_link` frames, but never TF.
 Covariances are provisional placeholders, not measured uncertainties.

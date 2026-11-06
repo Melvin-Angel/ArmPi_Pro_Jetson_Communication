@@ -4,10 +4,14 @@ import sys
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "protocol"))
-from armpi_protocol import JsonLineSocket, ProtocolError, encode, make_message, validate_message
+from armpi_protocol import JsonLineSocket, ProtocolError, chassis_direction_degrees, encode, make_message, validate_message
 
 
 class ProtocolTest(unittest.TestCase):
+    def test_ros_cartesian_to_vendor_chassis_direction(self):
+        for vx, vy, expected in ((1, 0, 90), (-1, 0, 270), (0, 1, 180), (0, -1, 0), (0, 0, 0)):
+            self.assertAlmostEqual(chassis_direction_degrees(vx, vy), expected)
+
     def test_round_trip_with_fragmentation(self):
         left, right = socket.socketpair()
         try:

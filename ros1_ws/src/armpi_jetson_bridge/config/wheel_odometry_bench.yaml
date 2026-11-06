@@ -1,0 +1,9 @@
+# Provisional, manually measured 6 Nov 2026; see docs/encoder_observations_20261106.md.
+channel_order: [3, 1, 4, 2]  # front-left, front-right, rear-left, rear-right
+wheel_signs: [-1, 1, 1, -1]
+wheel_radius_m: 0.0475  # simulation geometry; not independently measured here
+wheelbase_sum_m: 0.196  # experimental effective value; measured geometric half-sum is 0.2075 m
+ticks_per_revolution: 5826.0  # average of four hand-aligned three-turn trials
+max_ticks_per_second: 30000.0  # provisional discontinuity threshold, not measured
+rate_hz: 20.0
+i2c_bus: 1
