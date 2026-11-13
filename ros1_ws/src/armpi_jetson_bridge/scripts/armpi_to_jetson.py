@@ -47,6 +47,7 @@ class ArmPiToJetson(object):
         self.send_lock = threading.Lock()
         rospy.Subscriber("/wheel/odometry", Odometry, self._wheel_odom_callback, queue_size=1)
         rospy.Subscriber("/joint_states", JointState, self._joint_states_callback, queue_size=1)
+        rospy.Subscriber('/wheel/joint_states', JointState, self._joint_states_callback, queue_size=1)
         rospy.Timer(rospy.Duration(0.1), self._watchdog)
         rospy.Timer(rospy.Duration(0.2), self._telemetry)
 

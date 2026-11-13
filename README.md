@@ -54,7 +54,7 @@ positions.
 - subscribes `/armpi/gripper_cmd` (`std_msgs/String`): `open` or `close`
 - subscribes `/armpi/stop` (`std_msgs/Empty`)
 - publishes `/armpi/status` (`std_msgs/String`), `/armpi/state`
-  (`std_msgs/String`), and `/armpi/pose_estimated` (`geometry_msgs/PoseStamped`)
+  (`std_msgs/String`), and `/armpi/pose_commanded` (`geometry_msgs/PoseStamped`, last commanded target)
 - provides `/armpi/get_state` (`std_srvs/Trigger`); the resulting state is
   published on `/armpi/state`
 
@@ -84,7 +84,9 @@ not install both files on one machine. The node defaults match these values.
 ## Build and run
 
 Copy this directory to both computers, or keep it in a shared repository.  The
-small `protocol/` directory must be on `PYTHONPATH` for both nodes.
+small `protocol/` directory must be on `PYTHONPATH` for the ROS 1 node. The ROS 2
+package installs `armpi_protocol` automatically through a source symlink to the
+shared module; retain the repository layout when building.
 
 On the Pi (after sourcing its Melodic workspace and launching the vendor servo
 controller and `chassis_control`):
@@ -102,7 +104,6 @@ On the Jetson:
 cd /path/to/Jetson_ArmPi_Communication/ros2_ws
 colcon build --packages-select jetson_armpi_bridge
 . install/setup.bash
-export PYTHONPATH=/home/local/ros2_ws/src/Jetson_ArmPi_Communication/protocol:$PYTHONPATH
 ros2 run jetson_armpi_bridge jetson_to_armpi --ros-args \
   -p pi_host:=192.168.50.20 -p port:=8765
 ```
@@ -186,3 +187,16 @@ Synchronize Pi/Jetson clocks and verify offset, rates, reconnect and stop
 behavior before using it. TCP odometry shares the existing command connection;
 its effect on latency and the existing watchdog remains untested. The Jetson
 SLAM workspace publishes the wheel TF and must be its only publisher.
+
+## Joint feedback for physical visualization
+
+The Pi wheel odometry node also publishes `/wheel/joint_states` with encoder-relative
+angles for wheel_lf_Joint, wheel_rf_Joint, wheel_lb_Joint, wheel_rb_Joint. The bridge
+forwards these along with arm `/joint_states` to the Jetson `/joint_states` topic;
+no ROS1 topic feedback loop is introduced. Angles start at zero on node startup
+and use the same count mapping/signs as odometry. Invalid count/timing samples
+stop publication rather than inventing stationary values.
+
+The ROS2 bridge now publishes its stored Cartesian target on `/armpi/pose_commanded`.
+The physical robot description's separate `pose_feedback` node owns
+`/armpi/pose_estimated`, computing FK from the joint-driven TF with source timestamps.

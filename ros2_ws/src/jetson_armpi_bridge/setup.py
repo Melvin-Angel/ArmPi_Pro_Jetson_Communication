@@ -6,6 +6,8 @@ setup(
     name=package_name,
     version="0.1.0",
     packages=[package_name],
+    # The source symlink shares the exact protocol implementation with ROS 1.
+    py_modules=["armpi_protocol"],
     data_files=[("share/ament_index/resource_index/packages", ["resource/" + package_name]),
                 ("share/" + package_name, ["package.xml"])],
     install_requires=["setuptools"],

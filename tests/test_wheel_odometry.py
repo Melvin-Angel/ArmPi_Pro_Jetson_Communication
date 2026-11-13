@@ -29,6 +29,19 @@ class WheelMathTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             decode_counts(b'bad')
 
+    def test_encoder_joint_angles_and_rejection(self):
+        odom = WheelOdometry(0.0475, 100, 0.196, [-1, 1, 1, -1], 1000)
+        odom.update([10, 20, 30, 40], 1.0)
+        self.assertEqual(odom.angles, [0.0] * 4)
+        odom.update([-15, 45, 55, 15], 1.5)
+        for angle, speed in zip(odom.angles, odom.angular_velocities):
+            self.assertAlmostEqual(angle, math.pi / 2)
+            self.assertAlmostEqual(speed, math.pi)
+        previous = list(odom.angles)
+        with self.assertRaises(ValueError):
+            odom.update([10000] * 4, 1.6)
+        self.assertEqual(odom.angles, previous)
+
     def test_reject_discontinuity(self):
         with self.assertRaises(ValueError):
             self.make().update([1000] * 4, 1.1)

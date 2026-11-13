@@ -15,8 +15,8 @@ from rclpy.node import Node
 from std_msgs.msg import Empty, String
 from std_srvs.srv import Trigger
 
-# Deployment keeps protocol/ adjacent to the two workspaces.  It can also be
-# installed as a Python package; PYTHONPATH is intentionally sufficient.
+# Colcon installs the shared protocol module alongside this package.
+# Keep the explicit path override for existing deployments.
 PROTOCOL_DIR = os.environ.get("ARMPI_PROTOCOL_PATH", "")
 if PROTOCOL_DIR and PROTOCOL_DIR not in sys.path:
     sys.path.insert(0, PROTOCOL_DIR)
@@ -59,7 +59,7 @@ class JetsonToArmPi(Node):
         self.joint_states_pub = self.create_publisher(JointState, "/joint_states", 10)
         self.state_pub = self.create_publisher(String, "/armpi/state", 10)
         self.status_pub = self.create_publisher(String, "/armpi/status", 10)
-        self.pose_pub = self.create_publisher(PoseStamped, "/armpi/pose_estimated", 10)
+        self.pose_pub = self.create_publisher(PoseStamped, "/armpi/pose_commanded", 10)
         self.create_service(Trigger, "/armpi/get_state", self._on_get_state)
         self.create_timer(float(self.get_parameter("heartbeat_s").value), self._heartbeat)
         self.create_timer(0.02, self._drain_inbound)

@@ -19,7 +19,10 @@ class WheelOdometry:
             raise ValueError('calibration values must be positive')
         if len(signs) != 4 or any(s not in (-1, 1) for s in signs):
             raise ValueError('four wheel signs must be -1 or 1')
-        self.scale = 2 * math.pi * radius / ticks_per_revolution
+        self.angle_scale = 2 * math.pi / ticks_per_revolution
+        self.angles = [0.0] * 4
+        self.angular_velocities = [0.0] * 4
+        self.scale = radius * self.angle_scale
         self.lever = wheelbase_sum
         self.signs = signs
         self.limit = max_ticks_per_second
@@ -38,6 +41,9 @@ class WheelOdometry:
         self.previous, self.stamp = counts, stamp
         if dt <= 0 or dt > 1.0 or any(abs(d) > self.limit * dt for d in delta):
             raise ValueError('encoder discontinuity or invalid sample interval; re-baselined')
+        increments = [d * s * self.angle_scale for d, s in zip(delta, self.signs)]
+        self.angles = [a + d for a, d in zip(self.angles, increments)]
+        self.angular_velocities = [d / dt for d in increments]
         # Inputs are canonical front-left, front-right, rear-left, rear-right.
         fl, fr, rl, rr = [d * s * self.scale for d, s in zip(delta, self.signs)]
         dx = (fl + fr + rl + rr) / 4.0

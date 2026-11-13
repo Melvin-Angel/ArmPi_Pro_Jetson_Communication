@@ -3,6 +3,7 @@
 import math
 import rospy
 from nav_msgs.msg import Odometry
+from sensor_msgs.msg import JointState
 # Catkin devel-space wrappers execute the source script from another directory.
 import os
 import sys
@@ -26,6 +27,7 @@ def main():
                          rospy.get_param('~wheel_signs'),
                          float(rospy.get_param('~max_ticks_per_second')))
     pub = rospy.Publisher('/wheel/odometry', Odometry, queue_size=1)
+    joints_pub = rospy.Publisher('/wheel/joint_states', JointState, queue_size=1)
     rate = rospy.Rate(float(rospy.get_param('~rate_hz', 20.0)))
     while not rospy.is_shutdown():
         try:
@@ -45,6 +47,13 @@ def main():
                 msg.pose.covariance = [1000.0 if i in (14, 21, 28) else 0.1 if i in (0, 7, 35) else 0.0 for i in range(36)]
                 msg.twist.covariance = list(msg.pose.covariance)
                 pub.publish(msg)
+            # Encoder-relative wheel angles; zero is defined at node startup.
+            joints = JointState()
+            joints.header.stamp = stamp
+            joints.name = ['wheel_lf_Joint', 'wheel_rf_Joint', 'wheel_lb_Joint', 'wheel_rb_Joint']
+            joints.position = list(odom.angles)
+            joints.velocity = list(odom.angular_velocities)
+            joints_pub.publish(joints)
         except (OSError, ValueError) as exc:
             rospy.logerr('Wheel odometry stopped: %s; restart and relocalize', exc)
             return
