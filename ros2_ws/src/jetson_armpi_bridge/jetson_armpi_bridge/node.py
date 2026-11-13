@@ -14,6 +14,7 @@ from sensor_msgs.msg import JointState
 from rclpy.node import Node
 from std_msgs.msg import Empty, String
 from std_srvs.srv import Trigger
+from .arm_coordinates import ArmCoordinates, pure_pitch
 
 # Colcon installs the shared protocol module alongside this package.
 # Keep the explicit path override for existing deployments.
@@ -43,6 +44,17 @@ class JetsonToArmPi(Node):
         self.declare_parameter("port", 8765)
         self.declare_parameter("heartbeat_s", 0.2)
         self.declare_parameter("arm_motion_duration_s", 1.5)
+        self.declare_parameter("logical_arm_coordinates", False)
+        self.declare_parameter("vendor_axes", [-2, 1, 3])
+        self.declare_parameter("vendor_offset_m", [0.0, 0.0, 0.0])
+        self.declare_parameter("vendor_pitch_scale", -1.0)
+        self.declare_parameter("vendor_pitch_offset_deg", 90.0)
+        self.logical_arm = self.get_parameter("logical_arm_coordinates").value
+        self.arm_coordinates = ArmCoordinates(
+            self.get_parameter("vendor_axes").value,
+            self.get_parameter("vendor_offset_m").value,
+            self.get_parameter("vendor_pitch_scale").value,
+            self.get_parameter("vendor_pitch_offset_deg").value)
         self.pi_host = self.get_parameter("pi_host").value
         self.port = int(self.get_parameter("port").value)
         self.outbound = queue.Queue(maxsize=100)
@@ -76,11 +88,23 @@ class JetsonToArmPi(Node):
                                       "wz_radps": msg.angular.z})
 
     def _on_pose(self, msg):
-        roll, pitch, yaw = quaternion_to_euler(msg.pose.orientation)
-        if abs(roll) > 0.02 or abs(yaw) > 0.02:
-            self.get_logger().warn("ArmPi Pro IK is pitch-only; requested roll/yaw are not executed")
-        self._queue("arm_pose", {"position_m": [msg.pose.position.x, msg.pose.position.y, msg.pose.position.z],
-                                 "pitch_deg": math.degrees(pitch),
+        try:
+            q = msg.pose.orientation
+            pitch = pure_pitch((q.x, q.y, q.z, q.w))
+            position = [msg.pose.position.x, msg.pose.position.y, msg.pose.position.z]
+            if not all(math.isfinite(v) for v in position):
+                raise ValueError('position must be finite')
+            if self.logical_arm:
+                if msg.header.frame_id != 'arm_base':
+                    raise ValueError('logical arm commands require frame_id arm_base')
+                position, pitch_deg = self.arm_coordinates.to_vendor(position, pitch)
+            else:
+                pitch_deg = math.degrees(pitch)
+        except ValueError as exc:
+            self.get_logger().error('Rejected arm command: ' + str(exc))
+            return
+        self._queue("arm_pose", {"position_m": position,
+                                 "pitch_deg": pitch_deg,
                                  "duration_s": float(self.get_parameter("arm_motion_duration_s").value)})
 
     def _on_gripper(self, msg):
@@ -169,12 +193,15 @@ class JetsonToArmPi(Node):
             self.state_pub.publish(String(data=str(message)))
             if kind in ("state", "telemetry") and payload.get("pose"):
                 pose = payload["pose"]
+                position, pitch = pose['position_m'], math.radians(pose['pitch_deg'])
+                if self.logical_arm:
+                    position, pitch = self.arm_coordinates.from_vendor(position, pose['pitch_deg'])
                 pose_msg = PoseStamped()
                 pose_msg.header.stamp = self.get_clock().now().to_msg()
-                pose_msg.header.frame_id = "arm_base"
-                pose_msg.pose.position.x, pose_msg.pose.position.y, pose_msg.pose.position.z = pose["position_m"]
+                pose_msg.header.frame_id = "arm_base" if self.logical_arm else "vendor_arm"
+                pose_msg.pose.position.x, pose_msg.pose.position.y, pose_msg.pose.position.z = position
                 # This is a commanded pitch-only estimate, not forward kinematics.
-                half_pitch = math.radians(pose["pitch_deg"]) / 2.0
+                half_pitch = pitch / 2.0
                 pose_msg.pose.orientation.y = math.sin(half_pitch)
                 pose_msg.pose.orientation.w = math.cos(half_pitch)
                 self.pose_pub.publish(pose_msg)

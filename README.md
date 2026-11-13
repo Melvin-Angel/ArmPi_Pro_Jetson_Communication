@@ -200,3 +200,13 @@ stop publication rather than inventing stationary values.
 The ROS2 bridge now publishes its stored Cartesian target on `/armpi/pose_commanded`.
 The physical robot description's separate `pose_feedback` node owns
 `/armpi/pose_estimated`, computing FK from the joint-driven TF with source timestamps.
+
+### Provisional policy arm coordinate adapter
+
+ROS2 bridge supports opt-in `logical_arm_coordinates:=true` with configurable
+axis/offset/pitch mapping. See [initial calibration](docs/policy_arm_adapter.yaml)
+and the sibling Jetson [adapter guide](../Armpi_Pro_Jetson_Ros2/docs/physical_policy_adapters.md).
+Default legacy mode retains vendor coordinates. Pitch-only decoding now preserves
+angles beyond 90 degrees and rejects unsupported roll/yaw. In legacy mode,
+`/armpi/pose_commanded` is labelled `vendor_arm`; logical mode inverse maps it to
+`arm_base`. Neither is measured feedback. Calibration remains physically unverified.

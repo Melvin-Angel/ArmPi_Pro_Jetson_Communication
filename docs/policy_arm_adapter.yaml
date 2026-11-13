@@ -1,0 +1,10 @@
+# Provisional physical mapping. Pass to the ROS2 bridge at startup.
+# With logical_arm_coordinates enabled, /armpi/arm_pose_cmd requires arm_base.
+jetson_to_armpi:
+  ros__parameters:
+    logical_arm_coordinates: true
+    vendor_axes: [-2, 1, 3]
+    vendor_offset_m: [0.0, 0.0, 0.0]
+    vendor_pitch_scale: -1.0
+    vendor_pitch_offset_deg: 90.0
+    arm_motion_duration_s: 2.0
