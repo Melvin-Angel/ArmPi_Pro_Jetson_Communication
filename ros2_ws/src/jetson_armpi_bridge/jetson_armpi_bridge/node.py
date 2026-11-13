@@ -15,6 +15,7 @@ from rclpy.node import Node
 from std_msgs.msg import Empty, String
 from std_srvs.srv import Trigger
 from .arm_coordinates import ArmCoordinates, pure_pitch
+from .arm_coordinates import ArmCoordinates, pure_pitch
 
 # Colcon installs the shared protocol module alongside this package.
 # Keep the explicit path override for existing deployments.
@@ -88,6 +89,23 @@ class JetsonToArmPi(Node):
                                       "wz_radps": msg.angular.z})
 
     def _on_pose(self, msg):
+        try:
+            q = msg.pose.orientation
+            pitch = pure_pitch((q.x, q.y, q.z, q.w))
+            position = [msg.pose.position.x, msg.pose.position.y, msg.pose.position.z]
+            if not all(math.isfinite(v) for v in position):
+                raise ValueError('position must be finite')
+            if self.logical_arm:
+                if msg.header.frame_id != 'arm_base':
+                    raise ValueError('logical arm commands require frame_id arm_base')
+                position, pitch_deg = self.arm_coordinates.to_vendor(position, pitch)
+            else:
+                pitch_deg = math.degrees(pitch)
+        except ValueError as exc:
+            self.get_logger().error('Rejected arm command: ' + str(exc))
+            return
+        self._queue("arm_pose", {"position_m": position,
+                                 "pitch_deg": pitch_deg,
         try:
             q = msg.pose.orientation
             pitch = pure_pitch((q.x, q.y, q.z, q.w))
@@ -196,11 +214,17 @@ class JetsonToArmPi(Node):
                 position, pitch = pose['position_m'], math.radians(pose['pitch_deg'])
                 if self.logical_arm:
                     position, pitch = self.arm_coordinates.from_vendor(position, pose['pitch_deg'])
+                position, pitch = pose['position_m'], math.radians(pose['pitch_deg'])
+                if self.logical_arm:
+                    position, pitch = self.arm_coordinates.from_vendor(position, pose['pitch_deg'])
                 pose_msg = PoseStamped()
                 pose_msg.header.stamp = self.get_clock().now().to_msg()
                 pose_msg.header.frame_id = "arm_base" if self.logical_arm else "vendor_arm"
                 pose_msg.pose.position.x, pose_msg.pose.position.y, pose_msg.pose.position.z = position
+                pose_msg.header.frame_id = "arm_base" if self.logical_arm else "vendor_arm"
+                pose_msg.pose.position.x, pose_msg.pose.position.y, pose_msg.pose.position.z = position
                 # This is a commanded pitch-only estimate, not forward kinematics.
+                half_pitch = pitch / 2.0
                 half_pitch = pitch / 2.0
                 pose_msg.pose.orientation.y = math.sin(half_pitch)
                 pose_msg.pose.orientation.w = math.cos(half_pitch)
