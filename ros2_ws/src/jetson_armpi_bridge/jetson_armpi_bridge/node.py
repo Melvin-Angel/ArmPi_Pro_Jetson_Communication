@@ -106,23 +106,6 @@ class JetsonToArmPi(Node):
             return
         self._queue("arm_pose", {"position_m": position,
                                  "pitch_deg": pitch_deg,
-        try:
-            q = msg.pose.orientation
-            pitch = pure_pitch((q.x, q.y, q.z, q.w))
-            position = [msg.pose.position.x, msg.pose.position.y, msg.pose.position.z]
-            if not all(math.isfinite(v) for v in position):
-                raise ValueError('position must be finite')
-            if self.logical_arm:
-                if msg.header.frame_id != 'arm_base':
-                    raise ValueError('logical arm commands require frame_id arm_base')
-                position, pitch_deg = self.arm_coordinates.to_vendor(position, pitch)
-            else:
-                pitch_deg = math.degrees(pitch)
-        except ValueError as exc:
-            self.get_logger().error('Rejected arm command: ' + str(exc))
-            return
-        self._queue("arm_pose", {"position_m": position,
-                                 "pitch_deg": pitch_deg,
                                  "duration_s": float(self.get_parameter("arm_motion_duration_s").value)})
 
     def _on_gripper(self, msg):
