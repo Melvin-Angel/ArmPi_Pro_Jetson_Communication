@@ -16,7 +16,7 @@ def pure_pitch(q):
 
 
 class ArmCoordinates:
-    def __init__(self, axes=(-2, 1, 3), offset=(0., 0., 0.), pitch_scale=-1., pitch_offset_deg=90.):
+    def __init__(self, axes=(-2, 1, 3), offset=(0., 0., 0.), pitch_scale=-1., pitch_offset_deg=0.):
         self.axes = tuple(axes)
         self.offset = tuple(float(v) for v in offset)
         self.pitch_scale = float(pitch_scale)

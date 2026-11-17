@@ -48,7 +48,7 @@ class JetsonToArmPi(Node):
         self.declare_parameter("vendor_axes", [-2, 1, 3])
         self.declare_parameter("vendor_offset_m", [0.0, 0.0, 0.0])
         self.declare_parameter("vendor_pitch_scale", -1.0)
-        self.declare_parameter("vendor_pitch_offset_deg", 90.0)
+        self.declare_parameter("vendor_pitch_offset_deg", 0.0)
         self.logical_arm = self.get_parameter("logical_arm_coordinates").value
         self.arm_coordinates = ArmCoordinates(
             self.get_parameter("vendor_axes").value,
